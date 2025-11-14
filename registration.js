@@ -18,11 +18,17 @@ const API_BASE_URL = (() => {
     }
     // If the site is hosted on Render or you're accessing a Render preview,
     // point API calls explicitly to the public Render service.
-    // Replace or add additional hostnames if you have multiple Render services.
     if (hostname.includes('onrender.com') || hostname === 'phone-4hza.onrender.com') {
         return 'https://phone-4hza.onrender.com';
     }
-    // Fallback to current origin for other deployed environments
+
+    // For any deployed host (GitHub Pages, Netlify, etc.) use the Render backend.
+    // This avoids attempting to call non-existent /api routes on static hosts.
+    if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
+        return 'https://phone-4hza.onrender.com';
+    }
+
+    // Default: use same origin (localhost)
     return window.location.origin;
 })();
 
