@@ -1,0 +1,423 @@
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Registration Received — NATE</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      :root {
+        --primary: #667eea;
+        --primary-dark: #764ba2;
+        --text-dark: #1f2937;
+        --text-light: #6b7280;
+        --white: #ffffff;
+        --shadow-lg: 0 25px 50px rgba(9, 30, 66, 0.2);
+      }
+
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        color: var(--text-dark);
+      }
+
+      .navbar {
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        padding: 1.2rem 2rem;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+      }
+
+      .container {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 0 2rem;
+        width: 100%;
+      }
+
+      .nav-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+      }
+
+      .logo {
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: var(--primary);
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .nav-links {
+        display: flex;
+        gap: 2rem;
+        align-items: center;
+        margin-left: auto;
+      }
+
+      .nav-links a {
+        color: var(--text-light);
+        text-decoration: none;
+        font-weight: 500;
+        transition: color 0.3s ease;
+        font-size: 0.95rem;
+      }
+
+      .nav-links a:hover {
+        color: var(--primary);
+      }
+
+      .main-content {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 60px 2rem;
+      }
+
+      .confirm-inner {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .confirm-card {
+        background: var(--white);
+        border-radius: 16px;
+        padding: 50px 40px;
+        box-shadow: var(--shadow-lg);
+        text-align: center;
+        max-width: 600px;
+        animation: slideUp 0.6s ease;
+      }
+      
+      /* Registration details panel styles */
+      .registration-details { display: none; margin-top: 28px; text-align: left; background: #f8fafc; padding: 20px; border-radius: 8px; }
+      .details-heading { color: var(--primary); margin-bottom: 16px; font-size: 1.1rem; }
+      .close-details-btn { margin-top: 16px; width: 100%; }
+
+      @keyframes slideUp {
+        from {
+          opacity: 0;
+          transform: translateY(30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .profile-avatar {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.1));
+        color: var(--primary);
+        font-size: 40px;
+        margin: 0 auto 24px;
+        animation: bounce 0.8s ease;
+      }
+
+      @keyframes bounce {
+        0%, 100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.1);
+        }
+      }
+
+      .confirm-card h2 {
+        margin: 12px 0 16px;
+        color: var(--text-dark);
+        font-size: 1.8rem;
+        font-weight: 700;
+        line-height: 1.3;
+      }
+
+      .confirm-text {
+        color: var(--text-light);
+        line-height: 1.7;
+        margin-bottom: 28px;
+        font-size: 1rem;
+      }
+
+      .confirm-text #countdown {
+        color: var(--primary);
+        font-weight: 700;
+      }
+
+      .confirm-actions {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-top: 28px;
+      }
+
+      .btn {
+        display: inline-block;
+        padding: 12px 28px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+        border: none;
+        cursor: pointer;
+        text-align: center;
+      }
+
+      .btn.primary {
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        color: var(--white);
+        box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3);
+      }
+
+      .btn.primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 24px rgba(102, 126, 234, 0.4);
+      }
+
+      .btn.ghost {
+        background: transparent;
+        color: var(--primary);
+        border: 2px solid var(--primary);
+      }
+
+      .btn.ghost:hover {
+        background: rgba(102, 126, 234, 0.05);
+        transform: translateY(-2px);
+      }
+
+      .footer {
+        background: rgba(0, 0, 0, 0.15);
+        color: rgba(255, 255, 255, 0.9);
+        text-align: center;
+        padding: 2rem;
+        font-size: 0.9rem;
+      }
+
+      .footer p {
+        margin: 0.5rem 0;
+      }
+
+      @media (max-width: 640px) {
+        .navbar {
+          padding: 1rem;
+        }
+
+        .container {
+          padding: 0 1rem;
+        }
+
+        .nav-links {
+          gap: 1rem;
+          font-size: 0.85rem;
+        }
+
+        .main-content {
+          padding: 40px 1rem;
+        }
+
+        .confirm-card {
+          padding: 32px 24px;
+          border-radius: 12px;
+        }
+
+        .confirm-card h2 {
+          font-size: 1.4rem;
+        }
+
+        .confirm-text {
+          font-size: 0.9rem;
+        }
+
+        .confirm-actions {
+          flex-direction: column;
+        }
+
+        .btn {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="navbar" role="banner">
+      <div class="container nav-inner">
+        <a class="logo" href="/" aria-label="NATE home">
+          <span class="logo-text" aria-hidden="true"><i class="fas fa-graduation-cap"></i> NATE</span>
+        </a>
+        <nav class="nav-links" role="navigation" aria-label="Primary">
+          <a href="/">Home</a>
+          <a href="/about.html">About</a>
+          <a href="/contact.html">Contact</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container main-content" role="main">
+      <section class="confirmation" aria-labelledby="confirm-heading">
+        <div class="confirm-inner">
+          <div class="confirm-card" role="status" aria-live="polite">
+            <div class="profile-avatar"><i class="fas fa-user-check"></i></div>
+            <h2 id="confirm-heading">Thank you — your registration has been sent</h2>
+            <p class="confirm-text">We received your details and will review your registration shortly. Expect a follow-up email within a few days.</p>
+            <!-- Registration details panel (hidden until user requests) -->
+            <div id="registrationDetails" class="registration-details">
+              <h3 class="details-heading">Your Registration Details</h3>
+              <div id="detailsContent"></div>
+              <button class="btn ghost close-details-btn" id="closeDetailsBtn">Close Details</button>
+            </div>
+
+            <div class="confirm-actions">
+              <button class="btn primary" id="backBtn">Back to Dashboard</button>
+              <button class="btn ghost" id="viewDetailsBtn">View Registration</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer" role="contentinfo">
+      <div class="container">
+        <p>&copy; 2025 NATE — National Alliance for Talent Exchange</p>
+      </div>
+    </footer>
+  </body>
+  <script>
+    (function(){
+      // Personalize message from query param (?name=John) or sessionStorage
+      try{
+        var heading = document.getElementById('confirm-heading');
+        var text = document.querySelector('.confirm-text');
+        var params = new URLSearchParams(location.search);
+        var name = params.get('name') || sessionStorage.getItem('registrantName');
+        if(name && heading){
+          var clean = String(name).trim();
+          heading.textContent = 'Thank you, ' + clean + ' — your registration has been sent';
+          if(text) text.textContent = 'Hi ' + clean + ', we received your details and will review your registration shortly. Expect a follow-up email within a few days.';
+        }
+        // Focus heading for accessibility
+        if(heading){
+          heading.setAttribute('tabindex','-1');
+          heading.focus();
+        }
+      }catch(e){/* ignore personalization errors */}
+
+      // Back button: prefer history.back, fallback to index.html
+      var back = document.getElementById('backBtn');
+      if(back){
+        back.addEventListener('click', function(e){
+          // if user holds modifier keys, allow normal behavior
+          if(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+          e.preventDefault();
+          if(window.history && history.length > 1){
+            history.back();
+            setTimeout(function(){
+              if(location.pathname.indexOf('registration') === -1){
+                location.href = 'index.html';
+              }
+            }, 250);
+          } else {
+            location.href = 'index.html';
+          }
+        });
+      }
+
+      // Optional auto-redirect after N seconds (user can cancel)
+      try{
+        var autoSeconds = 10; // change as desired
+        var remaining = autoSeconds;
+        var confirmText = document.querySelector('.confirm-text');
+        if(confirmText){
+          var counter = document.createElement('div');
+          counter.style.marginTop = '12px';
+          counter.style.fontSize = '0.95rem';
+          counter.style.color = '#6b7280';
+          counter.innerHTML = 'Returning to the registration page in <span id="countdown">' + remaining + '</span> seconds. <button id="stayBtn" class="btn ghost" style="margin-left:8px;padding:6px 8px;">Stay</button>';
+          confirmText.appendChild(counter);
+          var countdownEl = counter.querySelector('#countdown');
+          var stayBtn = counter.querySelector('#stayBtn');
+          var timeoutId = null;
+          function tick(){
+            remaining -= 1;
+            if(countdownEl) countdownEl.textContent = remaining;
+            if(remaining <= 0){
+              if(timeoutId) clearInterval(timeoutId);
+              // navigate to registration page
+              location.href = 'index.html';
+            }
+          }
+          timeoutId = setInterval(tick, 1000);
+          if(stayBtn){
+            stayBtn.addEventListener('click', function(){
+              if(timeoutId) clearInterval(timeoutId);
+              if(countdownEl) countdownEl.textContent = 'stopped';
+              stayBtn.disabled = true;
+              stayBtn.textContent = 'Kept on this page';
+            });
+          }
+        }
+      }catch(e){/* ignore */}
+
+      // View Registration Details (show in-page from session/local storage)
+      var viewDetailsBtn = document.getElementById('viewDetailsBtn');
+      var closeDetailsBtn = document.getElementById('closeDetailsBtn');
+      var registrationDetails = document.getElementById('registrationDetails');
+      var detailsContent = document.getElementById('detailsContent');
+
+      if(viewDetailsBtn){
+        viewDetailsBtn.addEventListener('click', function(e){
+          e.preventDefault();
+          var firstName = sessionStorage.getItem('firstName') || localStorage.getItem('firstName') || 'Not available';
+          var lastName = sessionStorage.getItem('lastName') || localStorage.getItem('lastName') || 'Not available';
+          var email = sessionStorage.getItem('email') || localStorage.getItem('email') || 'Not available';
+          var phone = sessionStorage.getItem('phone') || localStorage.getItem('phone') || 'Not available';
+          var userType = sessionStorage.getItem('userType') || localStorage.getItem('userType') || 'Not available';
+          var organization = sessionStorage.getItem('organization') || localStorage.getItem('organization') || 'Not available';
+
+          var detailsHtml = '<p><strong>First Name:</strong> ' + firstName + '</p>' +
+                            '<p><strong>Last Name:</strong> ' + lastName + '</p>' +
+                            '<p><strong>Email:</strong> ' + email + '</p>' +
+                            '<p><strong>Phone:</strong> ' + phone + '</p>' +
+                            '<p><strong>Role:</strong> ' + userType + '</p>' +
+                            '<p><strong>Organization:</strong> ' + organization + '</p>';
+
+          detailsContent.innerHTML = detailsHtml;
+          registrationDetails.style.display = 'block';
+          viewDetailsBtn.style.display = 'none';
+        });
+      }
+
+      if(closeDetailsBtn){
+        closeDetailsBtn.addEventListener('click', function(e){
+          e.preventDefault();
+          registrationDetails.style.display = 'none';
+          if(viewDetailsBtn) viewDetailsBtn.style.display = 'inline-block';
+        });
+      }
+
+    })();
+  </script>
+  </html>

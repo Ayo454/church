@@ -289,9 +289,19 @@ async function handleFormSubmit(e) {
                 }
                 await registerViaAPI(formData);
             } else {
-                showSuccess('Registration successful! Redirecting to login...');
+                // Save registration fields to sessionStorage for the thank-you page
+                try{
+                    sessionStorage.setItem('firstName', formData.firstName || '');
+                    sessionStorage.setItem('lastName', formData.lastName || '');
+                    sessionStorage.setItem('email', formData.email || '');
+                    sessionStorage.setItem('phone', formData.phone || '');
+                    sessionStorage.setItem('userType', formData.userType || '');
+                    sessionStorage.setItem('organization', formData.organization || '');
+                    sessionStorage.setItem('registrantName', (formData.firstName || '') + (formData.lastName ? ' ' + formData.lastName : ''));
+                }catch(e){/* ignore storage errors */}
+                showSuccess('Registration successful! Redirecting to your dashboard...');
                 setTimeout(() => {
-                    window.location.href = '../index.html';
+                    window.location.href = 'thanks.html';
                 }, 2000);
             }
         } else {
@@ -339,9 +349,19 @@ async function registerViaAPI(formData) {
         const data = await response.json();
 
         if (data && data.success) {
-            showSuccess('Registration successful! Redirecting to login...');
+            // Save registration fields to sessionStorage for the thank-you page
+            try{
+                sessionStorage.setItem('firstName', formData.firstName || '');
+                sessionStorage.setItem('lastName', formData.lastName || '');
+                sessionStorage.setItem('email', formData.email || '');
+                sessionStorage.setItem('phone', formData.phone || '');
+                sessionStorage.setItem('userType', formData.userType || '');
+                sessionStorage.setItem('organization', formData.organization || '');
+                sessionStorage.setItem('registrantName', (formData.firstName || '') + (formData.lastName ? ' ' + formData.lastName : ''));
+            }catch(e){/* ignore storage errors */}
+            showSuccess('Registration successful! Redirecting to your dashboard...');
             setTimeout(() => {
-                window.location.href = '../index.html';
+                window.location.href = 'thanks.html';
             }, 2000);
         } else {
             showError(data.message || 'Registration failed. Please try again.');
