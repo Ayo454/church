@@ -275,8 +275,12 @@ async function handleFormSubmit(e) {
                 }]);
 
             if (error) {
-                console.warn('Supabase insert error:', error.message);
-                // Fall back to API endpoint
+                console.warn('Supabase insert error:', error.message || error);
+                const msg = (error.message || '').toString();
+                if (/duplicate|unique|already exists|users_email_key/i.test(msg) || (error.code && error.code === '23505')) {
+                    showError('An account with that email already exists. Please login or use a different email.');
+                    return;
+                }
                 await registerViaAPI(formData);
             } else {
                 showSuccess('Registration successful! Redirecting to login...');
@@ -310,9 +314,25 @@ async function registerViaAPI(formData) {
             body: JSON.stringify(formData)
         });
 
+        if (!response.ok) {
+            console.error('API Error:', response.status, response.statusText);
+            const text = await response.text().catch(() => '');
+            console.error('API response body:', text);
+            showError(`Server error: ${response.status}. Please try again.`);
+            return;
+        }
+
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('Unexpected non-JSON response from API:', text);
+            showError('Server returned an unexpected response. Please try again.');
+            return;
+        }
+
         const data = await response.json();
 
-        if (data.success) {
+        if (data && data.success) {
             showSuccess('Registration successful! Redirecting to login...');
             setTimeout(() => {
                 window.location.href = '../index.html';
