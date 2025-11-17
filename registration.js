@@ -6,31 +6,33 @@ const RENDER_URL = 'https://phone-4hza.onrender.com';
 // Expose to window for debugging or other scripts that may read it
 window.RENDER_URL = RENDER_URL;
 
-const API_BASE_URL = (() => {
-    // If we have an injected RENDER_API_URL from the server, use it
-    if (window.RENDER_API_URL) {
-        return window.RENDER_API_URL;
-    }
-    const hostname = window.location.hostname || '';
-    // For localhost dev, use Render URL instead of localhost
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        return 'https://phone-4hza.onrender.com';
-    }
-    // If the site is hosted on Render or you're accessing a Render preview,
-    // point API calls explicitly to the public Render service.
-    if (hostname.includes('onrender.com') || hostname === 'phone-4hza.onrender.com') {
-        return 'https://phone-4hza.onrender.com';
-    }
+// Determine API base and expose it on `window` so other shared scripts can reuse it
+if (typeof window.API_BASE_URL === 'undefined') {
+    window.API_BASE_URL = (() => {
+        // If we have an injected RENDER_API_URL from the server, use it
+        if (window.RENDER_API_URL) {
+            return window.RENDER_API_URL;
+        }
+        const hostname = window.location.hostname || '';
+        // For localhost dev, use Render URL instead of localhost
+        if (hostname === 'localhost' || hostname === '127.0.0.1') {
+            return 'https://phone-4hza.onrender.com';
+        }
+        // If the site is hosted on Render or you're accessing a Render preview,
+        // point API calls explicitly to the public Render service.
+        if (hostname.includes('onrender.com') || hostname === 'phone-4hza.onrender.com') {
+            return 'https://phone-4hza.onrender.com';
+        }
 
-    // For any deployed host (GitHub Pages, Netlify, etc.) use the Render backend.
-    // This avoids attempting to call non-existent /api routes on static hosts.
-    if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
-        return 'https://phone-4hza.onrender.com';
-    }
+        // For any deployed host (GitHub Pages, Netlify, etc.) use the Render backend.
+        if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
+            return 'https://phone-4hza.onrender.com';
+        }
 
-    // Default: use same origin (localhost)
-    return window.location.origin;
-})();
+        // Default: use same origin (localhost)
+        return window.location.origin;
+    })();
+}
 
 // Supabase Configuration
 const SUPABASE_URL = 'https://trcbyqdfgnlaesixhorz.supabase.co';
@@ -39,8 +41,25 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 // Initialize Supabase client
 const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-console.log('Registration page initialized with API_BASE_URL:', API_BASE_URL);
-console.log('Supabase client:', supabaseClient ? 'Connected' : 'Not available');
+// Load application config (from /config.json) so front-end features can be toggled
+window.APP_CONFIG = window.APP_CONFIG || {};
+let APP_CONFIG = window.APP_CONFIG;
+async function loadAppConfig() {
+    try {
+        const resp = await fetch('/config.json', { cache: 'no-store' });
+        if (resp && resp.ok) {
+            APP_CONFIG = await resp.json();
+            window.APP_CONFIG = APP_CONFIG;
+        } else {
+            console.warn('Could not load /config.json, using defaults');
+        }
+    } catch (err) {
+        console.warn('Error loading app config:', err);
+    }
+}
+
+// Start loading config immediately (non-blocking)
+loadAppConfig();
 
 // Initialize on DOM load
 document.addEventListener('DOMContentLoaded', () => {
@@ -226,24 +245,17 @@ async function handleFormSubmit(e) {
     document.getElementById('successMessage').classList.remove('show');
 
     // Validate all fields
-    if (!validateForm()) {
-        return;
-    }
+    if (!validateForm()) return;
 
     // Get form data. Prefer E.164 if intl-tel-input can provide it; otherwise accept user input.
     let phoneValue = document.getElementById('phone').value.trim();
     if (iti && typeof iti.getNumber === 'function') {
         try {
             const e164 = iti.getNumber();
-            if (e164 && e164.trim().length > 0) {
-                phoneValue = e164;
-            }
-        } catch (e) {
-            // ignore and use raw input
-        }
+            if (e164 && e164.trim().length > 0) phoneValue = e164;
+        } catch (e) { /* ignore */ }
     }
 
-    // Build formData
     const formData = {
         firstName: document.getElementById('firstName').value.trim(),
         lastName: document.getElementById('lastName').value.trim(),
@@ -255,6 +267,10 @@ async function handleFormSubmit(e) {
         newsletter: document.getElementById('newsletter').checked,
         createdAt: new Date().toISOString()
     };
+    // Add common alternate phone field names to improve compatibility with other parts of the app
+    formData.phone_number = formData.phone;
+    formData.phoneNumber = formData.phone;
+    formData.mobile = formData.phone;
 
     // Show loading state
     const submitBtn = document.getElementById('submitBtn');
@@ -265,52 +281,61 @@ async function handleFormSubmit(e) {
     spinner.classList.remove('hidden');
 
     try {
-        // Try to save to Supabase first
-        if (supabaseClient) {
-            const { data, error } = await supabaseClient
-                .from('users')
-                .insert([{
-                    first_name: formData.firstName,
-                    last_name: formData.lastName,
-                    email: formData.email,
-                    phone: formData.phone,
-                    user_type: formData.userType,
-                    organization: formData.organization,
-                    newsletter_subscribed: formData.newsletter,
-                    created_at: formData.createdAt
-                }]);
+        // Instead of immediately registering the user, create a pending registration
+        // so the user can pay the registration fee. The server will finalize the
+        // registration after payment is confirmed.
+        const resp = await fetch(`${window.API_BASE_URL}/api/preregister`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                firstName: formData.firstName,
+                lastName: formData.lastName,
+                email: formData.email,
+                phone: formData.phone,
+                phone_number: formData.phone,
+                phoneNumber: formData.phone,
+                mobile: formData.phone,
+                userType: formData.userType,
+                organization: formData.organization,
+                newsletter: formData.newsletter,
+                createdAt: formData.createdAt,
+                enableClaudeHaiku: formData.enableClaudeHaiku
+            })
+        });
 
-            if (error) {
-                console.warn('Supabase insert error:', error.message || error);
-                const msg = (error.message || '').toString();
-                if (/duplicate|unique|already exists|users_email_key/i.test(msg) || (error.code && error.code === '23505')) {
-                    showError('An account with that email already exists. Please login or use a different email.');
-                    return;
-                }
-                await registerViaAPI(formData);
-            } else {
-                // Save registration fields to sessionStorage for the thank-you page
-                try{
-                    sessionStorage.setItem('firstName', formData.firstName || '');
-                    sessionStorage.setItem('lastName', formData.lastName || '');
-                    sessionStorage.setItem('email', formData.email || '');
-                    sessionStorage.setItem('phone', formData.phone || '');
-                    sessionStorage.setItem('userType', formData.userType || '');
-                    sessionStorage.setItem('organization', formData.organization || '');
-                    sessionStorage.setItem('registrantName', (formData.firstName || '') + (formData.lastName ? ' ' + formData.lastName : ''));
-                }catch(e){/* ignore storage errors */}
-                showSuccess('Registration successful! Redirecting to your dashboard...');
-                setTimeout(() => {
-                    window.location.href = 'thanks.html';
-                }, 2000);
-            }
-        } else {
-            // Fallback to API endpoint if Supabase not available
+        const data = await resp.json().catch(() => null);
+        if (!resp.ok || !data || !data.pendingId) {
+            // If server failed to create pending registration, fall back to normal register
+            console.warn('preregister failed, falling back to direct register', data);
             await registerViaAPI(formData);
+            return;
         }
+
+        // Save pendingId locally so it can be finalized after payment
+        sessionStorage.setItem('pendingRegistrationId', data.pendingId);
+
+        // Save form data locally so we can complete registration after admin approval
+        try {
+            sessionStorage.setItem('registration_formData', JSON.stringify(formData));
+        } catch (e) {
+            console.warn('Could not save registration formData to sessionStorage', e);
+        }
+
+        // If the shared site payment UI is available, show it; otherwise redirect to a simple payment page
+        if (typeof window.showPaymentOptions === 'function') {
+            // Show payment modal using existing shared payment UI
+            window.showPaymentOptions(data.pendingId, null);
+        } else {
+            // Fallback: redirect to a payment page (server may provide a checkout URL)
+            showSuccess('Redirecting to payment...');
+            setTimeout(() => {
+                window.location.href = `${window.API_BASE_URL}/pay?pendingId=${encodeURIComponent(data.pendingId)}`;
+            }, 800);
+        }
+
     } catch (err) {
-        console.error('Registration error:', err);
-        showError('An error occurred during registration. Please try again.');
+        console.error('Registration error (preregister):', err);
+        showError('An error occurred preparing registration payment. Please try again.');
     } finally {
         // Reset loading state
         submitBtn.disabled = false;
@@ -322,7 +347,7 @@ async function handleFormSubmit(e) {
 // Register via API Endpoint
 async function registerViaAPI(formData) {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/register`, {
+        const response = await fetch(`${window.API_BASE_URL}/api/register`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'

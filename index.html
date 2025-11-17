@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml">
     <meta name="google-site-verification" content="KNN-6A92x7eiaco3-ffNwKrH3d20DlcsTDA5UkXzvl8" />
+    
     <title>User Registration - NATE | National Alliance for Talent Exchange</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -160,7 +162,7 @@
                     </div>
 
                     <!-- Submit Button -->
-                    <button type="submit" class="submit-btn" id="submitBtn">
+                    <button type="button" class="submit-btn" id="submitBtn">
                         <span class="btn-text">Create Account</span>
                         <span class="loading-spinner hidden" id="spinner">
                             <i class="fas fa-spinner" aria-hidden="true"></i>
@@ -177,6 +179,278 @@
     </div>
 
     <script src="registration.js"></script>
+    <!-- Pay to account modal (shown when Create Account is clicked) -->
+    <div id="payToAccountModal" class="modal payment-modal hidden">
+        <div class="modal-content pay-modal-content">
+            <span class="close-modal pay-close" id="payToAccountClose">&times;</span>
+            <h3>Pay to Account</h3>
+            <p>Please transfer <strong>$50.00</strong> to the account below to complete your registration.</p>
+            <ul class="pay-details">
+                <li><strong>Bank:</strong> Example Bank</li>
+                <li><strong>Account Name:</strong> NATE</li>
+                <li><strong>Account Number:</strong> 0123456789</li>
+                <li><strong>Reference:</strong> Use your email address or the pending registration ID</li>
+            </ul>
+            <p class="pay-note">After you make the transfer, click <strong>I've Paid</strong> to continue and complete your registration.</p>
+            <div class="modal-actions">
+                <button id="confirmPaidBtn" class="submit-btn pay-confirm">I've Paid</button>
+                <button id="cancelPaidBtn" class="submit-btn pay-cancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const submitBtn = document.getElementById('submitBtn');
+        const form = document.getElementById('registrationForm');
+        const modal = document.getElementById('payToAccountModal');
+        const close = document.getElementById('payToAccountClose');
+        const confirm = document.getElementById('confirmPaidBtn');
+        const cancel = document.getElementById('cancelPaidBtn');
+
+        function openModal() {
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal() {
+            if (!modal) return;
+            modal.classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+
+        if (submitBtn && modal) {
+            submitBtn.addEventListener('click', function (e) {
+                // Prevent immediate submission; show payment instructions first
+                e.preventDefault();
+                openModal();
+            });
+        }
+
+        if (close) close.addEventListener('click', closeModal);
+        if (cancel) cancel.addEventListener('click', function(e) {
+            // Only allow cancel after approval is granted or timeout
+            const confirmBtn = document.getElementById('confirmPaidBtn');
+            if (!confirmBtn.disabled) {
+                closeModal();
+            } else {
+                showNotification('Please wait for admin approval or close this page. Do not cancel during approval process.', 'warning');
+            }
+        });
+
+        if (confirm) {
+            confirm.addEventListener('click', async function (e) {
+                e.preventDefault();
+                // Show spinner/disable buttons
+                const spinner = document.getElementById('spinner');
+                const confirmBtn = document.getElementById('confirmPaidBtn');
+                const cancelBtn = document.getElementById('cancelPaidBtn');
+                if (spinner) spinner.classList.remove('hidden');
+                if (confirmBtn) confirmBtn.disabled = true;
+                if (cancelBtn) cancelBtn.disabled = true;
+
+                // Collect form values
+                const getVal = id => document.getElementById(id) ? document.getElementById(id).value.trim() : '';
+                const firstName = getVal('firstName');
+                const lastName = getVal('lastName');
+                const email = getVal('email');
+                const phone = getVal('phone');
+                const userType = getVal('userType');
+
+                // Supabase config
+                const SUPABASE_URL = 'https://trcbyqdfgnlaesixhorz.supabase.co';
+                const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRyY2J5cWRmZ25sYWVzaXhob3J6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI3OTU0ODEsImV4cCI6MjA3ODM3MTQ4MX0.SHMr2WS1-q0zDX5p51MMqiO4Dfz1ZZwVjbNTkMiEUsc';
+
+                let sbClient = null;
+                try {
+                    if (window.supabase && typeof window.supabase.createClient === 'function') {
+                        sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                    } else if (typeof supabase !== 'undefined' && typeof supabase.createClient === 'function') {
+                        sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                    }
+                } catch (err) {
+                    console.error('Error creating Supabase client:', err);
+                }
+
+                let insertSuccess = false;
+                let insertedRecord = null;
+
+                if (sbClient) {
+                    try {
+                        // Upsert by email to avoid duplicates
+                        // Only include columns that exist in the Supabase users table schema
+                        const payload = {
+                            first_name: firstName.substring(0, 100),
+                            last_name: lastName.substring(0, 100),
+                            email: email.substring(0, 100),
+                            phone: phone.substring(0, 20),
+                            user_type: userType.substring(0, 20),
+                            organization: getVal('organization').substring(0, 100),
+                            newsletter_subscribed: document.getElementById('newsletter') ? document.getElementById('newsletter').checked : false
+                        };
+
+                        // Attempt upsert with automatic retry if Supabase reports missing columns
+                        let upsertResult = null;
+                        try {
+                            if (typeof upsertWithMissingColumnRetry === 'function') {
+                                upsertResult = await upsertWithMissingColumnRetry(sbClient, 'users', payload, { upsertOptions: { onConflict: 'email' } });
+                            } else {
+                                const { data, error } = await sbClient.from('users').upsert([payload], { onConflict: 'email' }).select();
+                                upsertResult = { data, error };
+                            }
+                        } catch (err) {
+                            upsertResult = { data: null, error: err };
+                        }
+
+                        if (upsertResult && upsertResult.error) {
+                            console.error('Supabase upsert error:', upsertResult.error);
+                            showNotification(`DB error: ${upsertResult.error.message || JSON.stringify(upsertResult.error)}`, 'error');
+                        } else if (upsertResult && upsertResult.data && upsertResult.data.length > 0) {
+                            insertSuccess = true;
+                            insertedRecord = upsertResult.data[0];
+                            showNotification('Registration saved to users table.', 'success');
+                        } else if (upsertResult && upsertResult.data) {
+                            showNotification('Registration saved (no returned record).', 'info');
+                            insertSuccess = true;
+                        } else {
+                            showNotification('Unknown DB response; check console for details.', 'error');
+                        }
+                    } catch (err) {
+                        console.error('Error inserting into Supabase users table:', err);
+                        showNotification(`Error saving registration: ${err.message || err}`, 'error');
+                    }
+                } else {
+                    console.warn('Supabase client not available; skipping DB insert.');
+                    showNotification('Supabase client not available; proceeding without DB insert.', 'info');
+                    insertSuccess = true; // allow flow to continue
+                }
+
+                // Hide spinner/enable buttons
+                if (spinner) spinner.classList.add('hidden');
+                if (confirmBtn) confirmBtn.disabled = false;
+                if (cancelBtn) cancelBtn.disabled = false;
+
+                // If insert failed, stop and let user retry
+                if (!insertSuccess) {
+                    return;
+                }
+
+                // If we got an inserted record id, attach it to form as hidden input
+                if (insertedRecord && insertedRecord.id && form) {
+                    let hidden = document.getElementById('supabase_user_id');
+                    if (!hidden) {
+                        hidden = document.createElement('input');
+                        hidden.type = 'hidden';
+                        hidden.id = 'supabase_user_id';
+                        hidden.name = 'supabase_user_id';
+                        form.appendChild(hidden);
+                    }
+                    hidden.value = insertedRecord.id;
+                }
+
+                // WAIT FOR ADMIN APPROVAL: Keep modal open, show waiting message, disable buttons
+                // Instead of auto-submitting, show "waiting for admin approval" message
+                if (confirmBtn) confirmBtn.disabled = true;
+                if (cancelBtn) cancelBtn.disabled = true;
+                showNotification('Payment details sent! Waiting for admin approval...', 'info');
+                
+                // Optional: Update modal to show waiting state
+                const modalTitle = modal.querySelector('h3');
+                if (modalTitle) {
+                    modalTitle.textContent = 'Waiting for Admin Approval';
+                }
+                
+                const payNote = modal.querySelector('.pay-note');
+                if (payNote) {
+                    payNote.innerHTML = '<strong>Your payment has been recorded.</strong> An admin will verify and approve your registration shortly. Please wait...';
+                }
+                
+                // Poll for admin approval every 2 seconds (check Supabase for approved status)
+                let approvalChecks = 0;
+                const maxChecks = 600; // ~20 minutes max wait
+                const approvalPoller = setInterval(async () => {
+                    approvalChecks++;
+                    
+                    // Check Supabase for admin approval
+                    let isApproved = false;
+                    if (sbClient && insertedRecord && insertedRecord.id) {
+                        try {
+                            // Query all columns to see what's available for this user
+                            const { data: user, error } = await sbClient
+                                .from('users')
+                                .select('*')
+                                .eq('id', insertedRecord.id)
+                                .single();
+                            
+                            if (!error && user) {
+                                // Check if admin has approved this user
+                                // Check multiple possible approval column names
+                                isApproved = user.approved === true 
+                                    || user.status === 'approved' 
+                                    || user.is_approved === true;
+                                console.log('Approval check for user', insertedRecord.id, ':', isApproved, 'User data:', user);
+                            } else if (error) {
+                                console.warn('Error checking approval status:', error.message);
+                            }
+                        } catch (err) {
+                            console.warn('Error checking approval status:', err);
+                        }
+                    }
+                    
+                    if (isApproved) {
+                        // Admin has approved!
+                        clearInterval(approvalPoller);
+                        showNotification('Registration approved by admin! Completing your registration...', 'success');
+                        
+                        // Re-enable buttons and auto-submit
+                        if (confirmBtn) confirmBtn.disabled = false;
+                        if (cancelBtn) cancelBtn.disabled = false;
+                        
+                        // Complete registration using saved form data (avoid re-running preregister)
+                        try {
+                            const saved = sessionStorage.getItem('registration_formData');
+                            if (saved) {
+                                const parsed = JSON.parse(saved);
+                                // Call the global function from registration.js to perform final registration
+                                if (typeof window.registerViaAPI === 'function') {
+                                    // Close modal first
+                                    closeModal();
+                                    await window.registerViaAPI(parsed);
+                                    return;
+                                }
+                            }
+                        } catch (err) {
+                            console.warn('Error completing registration after approval:', err);
+                        }
+
+                        // Fallback: submit the form normally
+                        closeModal();
+                        if (form) {
+                            if (typeof form.requestSubmit === 'function') {
+                                form.requestSubmit();
+                            } else {
+                                form.submit();
+                            }
+                        }
+                    } else if (approvalChecks >= maxChecks) {
+                        // Timeout after ~20 minutes
+                        clearInterval(approvalPoller);
+                        showNotification('Admin approval timed out. Please contact support.', 'error');
+                        if (confirmBtn) confirmBtn.disabled = false;
+                        if (cancelBtn) cancelBtn.disabled = false;
+                    } else {
+                        // Still waiting - show progress
+                        if (confirmBtn) confirmBtn.disabled = true;
+                        if (cancelBtn) cancelBtn.disabled = true; // Block cancel during waiting
+                    }
+                }, 2000); // Check every 2 seconds
+            });
+        }
+    });
+    </script>
+    <!-- Shared site scripts (payment UI, helpers) -->
+    <script src="../script.js"></script>
     <!-- intl-tel-input JS (loaded after page scripts to ensure it's available when registration.js runs) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/intlTelInput.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/utils.js"></script>
